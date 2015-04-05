@@ -1,100 +1,109 @@
 package AE2Addon.tile;
 
-import AE2Addon.registry.BlockRegistry;
-import appeng.api.AEApi;
-import appeng.api.networking.*;
-import appeng.api.util.AECableType;
-import appeng.api.util.AEColor;
-import appeng.api.util.DimensionalCoord;
+import appeng.api.networking.GridFlags;
+import appeng.api.storage.data.IAEItemStack;
+import appeng.me.GridAccessException;
+import appeng.tile.grid.AENetworkTile;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraftforge.common.util.ForgeDirection;
 
-import java.util.EnumSet;
+import java.util.Iterator;
 
-public class AdvancedInterfaceTileEntity extends TileEntity implements IGridHost, IGridBlock
+public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInventory
 {
-    @Override
-    public double getIdlePowerUsage()
+    public AdvancedInterfaceTileEntity()
     {
-        return 1;
+        this.gridProxy.setFlags(GridFlags.REQUIRE_CHANNEL);
     }
 
     @Override
-    public EnumSet<GridFlags> getFlags()
+    public int getSizeInventory()
     {
-        return EnumSet.of(GridFlags.REQUIRE_CHANNEL, GridFlags.DENSE_CAPACITY);
+        try
+        {
+            return gridProxy.getStorage().getItemInventory().getStorageList().size();
+        } catch (GridAccessException e)
+        {
+            return 0;
+        }
     }
 
     @Override
-    public boolean isWorldAccessible()
+    public ItemStack getStackInSlot(int slot)
     {
-        return true;
+        try
+        {
+            Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
+            for (int i = 0; i < slot; i++)
+                itr.next();
+            return itr.next().getItemStack();
+        } catch (GridAccessException e)
+        {
+            return null;
+        } catch (NullPointerException e)
+        {
+            return null;
+        }
     }
 
     @Override
-    public DimensionalCoord getLocation()
+    public ItemStack decrStackSize(int slot, int amount)
     {
-        return new DimensionalCoord(this);
+        return null;
     }
 
     @Override
-    public AEColor getGridColor()
+    public ItemStack getStackInSlotOnClosing(int slot)
     {
-        return AEColor.Transparent;
+        return null;
     }
 
     @Override
-    public void onGridNotification(GridNotification notification)
-    {
-
-    }
-
-    @Override
-    public void setNetworkStatus(IGrid grid, int channelsInUse)
-    {
-
-    }
-
-    @Override
-    public EnumSet<ForgeDirection> getConnectableSides()
-    {
-        return EnumSet.allOf(ForgeDirection.class);
-    }
-
-    @Override
-    public IGridHost getMachine()
-    {
-        return this;
-    }
-
-    @Override
-    public void gridChanged()
+    public void setInventorySlotContents(int slot, ItemStack stack)
     {
 
     }
 
     @Override
-    public ItemStack getMachineRepresentation()
+    public String getInventoryName()
     {
-        return new ItemStack(BlockRegistry.advancedInterfaceBlock);
+        return "advancedInterface";
     }
 
     @Override
-    public IGridNode getGridNode(ForgeDirection dir)
+    public boolean hasCustomInventoryName()
     {
-        return AEApi.instance().createGridNode(this);
+        return false;
     }
 
     @Override
-    public AECableType getCableConnectionType(ForgeDirection dir)
+    public int getInventoryStackLimit()
     {
-        return AECableType.SMART;
+        return Integer.MAX_VALUE;
     }
 
     @Override
-    public void securityBreak()
+    public boolean isUseableByPlayer(EntityPlayer p_70300_1_)
     {
-        this.worldObj.func_147480_a(this.xCoord, this.yCoord, this.zCoord, true);
+        return false;
+    }
+
+    @Override
+    public void openInventory()
+    {
+
+    }
+
+    @Override
+    public void closeInventory()
+    {
+
+    }
+
+    @Override
+    public boolean isItemValidForSlot(int p_94041_1_, ItemStack p_94041_2_)
+    {
+        return false;
     }
 }
