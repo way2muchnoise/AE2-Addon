@@ -1,9 +1,12 @@
 package AE2Addon.tile;
 
+import appeng.api.config.Actionable;
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.security.BaseActionSource;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.me.GridAccessException;
 import appeng.tile.grid.AENetworkTile;
+import appeng.util.item.AEItemStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -12,6 +15,8 @@ import java.util.Iterator;
 
 public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInventory
 {
+    private IAEItemStack lastGet;
+
     public AdvancedInterfaceTileEntity()
     {
         this.gridProxy.setFlags(GridFlags.REQUIRE_CHANNEL);
@@ -35,9 +40,10 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
         try
         {
             Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
-            for (int i = 0; i < slot; i++)
+            for (int i = 0; itr.hasNext() && i < slot; i++)
                 itr.next();
-            return itr.next().getItemStack();
+            this.lastGet = itr.next();
+            return this.lastGet.getItemStack();
         } catch (GridAccessException e)
         {
             return null;
@@ -50,7 +56,19 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public ItemStack decrStackSize(int slot, int amount)
     {
-        return null;
+        if (this.lastGet == null)
+            return null;
+        try
+        {
+            ItemStack theStack = this.gridProxy.getStorage().getItemInventory().getStorageList().findPrecise(this.lastGet).getItemStack();
+            ItemStack newStack = theStack.copy();
+            newStack.stackSize = Math.min(amount, theStack.stackSize);
+            this.gridProxy.getStorage().getItemInventory().extractItems(AEItemStack.create(newStack), Actionable.MODULATE, new BaseActionSource());
+            return newStack;
+        } catch (GridAccessException e)
+        {
+            return null;
+        }
     }
 
     @Override
@@ -84,7 +102,7 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     }
 
     @Override
-    public boolean isUseableByPlayer(EntityPlayer p_70300_1_)
+    public boolean isUseableByPlayer(EntityPlayer player)
     {
         return false;
     }
@@ -102,8 +120,14 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     }
 
     @Override
-    public boolean isItemValidForSlot(int p_94041_1_, ItemStack p_94041_2_)
+    public boolean isItemValidForSlot(int slot, ItemStack stack)
     {
-        return false;
+        try
+        {
+            return this.gridProxy.getStorage().getItemInventory().canAccept(AEItemStack.create(stack));
+        } catch (GridAccessException e)
+        {
+            return false;
+        }
     }
 }
