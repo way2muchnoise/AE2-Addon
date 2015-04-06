@@ -2,7 +2,7 @@ package AE2Addon.tile;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.GridFlags;
-import appeng.api.networking.security.BaseActionSource;
+import appeng.api.networking.security.MachineSource;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.me.GridAccessException;
 import appeng.tile.grid.AENetworkTile;
@@ -15,7 +15,6 @@ import java.util.Iterator;
 
 public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInventory
 {
-    private IAEItemStack lastGet;
 
     public AdvancedInterfaceTileEntity()
     {
@@ -27,7 +26,8 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     {
         try
         {
-            return gridProxy.getStorage().getItemInventory().getStorageList().size();
+            int size = gridProxy.getStorage().getItemInventory().getStorageList().size();
+            return size > 0 ? size : 1;
         } catch (GridAccessException e)
         {
             return 0;
@@ -42,8 +42,7 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
             Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
             for (int i = 0; itr.hasNext() && i < slot; i++)
                 itr.next();
-            this.lastGet = itr.next();
-            return this.lastGet.getItemStack();
+            return itr.next().getItemStack();
         } catch (GridAccessException e)
         {
             return null;
@@ -56,14 +55,15 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public ItemStack decrStackSize(int slot, int amount)
     {
-        if (this.lastGet == null)
-            return null;
         try
         {
-            ItemStack theStack = this.gridProxy.getStorage().getItemInventory().getStorageList().findPrecise(this.lastGet).getItemStack();
+            Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
+            for (int i = 0; itr.hasNext() && i < slot; i++)
+                itr.next();
+            ItemStack theStack = itr.next().getItemStack();
             ItemStack newStack = theStack.copy();
             newStack.stackSize = Math.min(amount, theStack.stackSize);
-            this.gridProxy.getStorage().getItemInventory().extractItems(AEItemStack.create(newStack), Actionable.MODULATE, new BaseActionSource());
+            this.gridProxy.getStorage().getItemInventory().extractItems(AEItemStack.create(newStack), Actionable.MODULATE, new MachineSource(this));
             return newStack;
         } catch (GridAccessException e)
         {
@@ -80,7 +80,13 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public void setInventorySlotContents(int slot, ItemStack stack)
     {
-
+        try
+        {
+            gridProxy.getStorage().getItemInventory().injectItems(AEItemStack.create(stack), Actionable.MODULATE, new MachineSource(this));
+        } catch (GridAccessException e)
+        {
+            // can't access grid this should never happen since it is dealt with the isItemValidForSlot function
+        }
     }
 
     @Override
