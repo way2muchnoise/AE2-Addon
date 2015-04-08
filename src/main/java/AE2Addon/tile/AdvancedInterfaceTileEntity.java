@@ -1,24 +1,129 @@
 package AE2Addon.tile;
 
-import appeng.api.config.Actionable;
-import appeng.api.networking.GridFlags;
-import appeng.api.networking.security.MachineSource;
+import AE2Addon.registry.BlockRegistry;
+import AE2Addon.util.AEHelper;
+import appeng.api.AEApi;
+import appeng.api.networking.*;
+import appeng.api.networking.security.IActionHost;
 import appeng.api.storage.data.IAEItemStack;
+import appeng.api.util.AECableType;
+import appeng.api.util.AEColor;
+import appeng.api.util.DimensionalCoord;
 import appeng.me.GridAccessException;
-import appeng.tile.grid.AENetworkTile;
-import appeng.util.item.AEItemStack;
+import cpw.mods.fml.common.FMLCommonHandler;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.util.ForgeDirection;
 
+import java.util.EnumSet;
 import java.util.Iterator;
 
-public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInventory
+public class AdvancedInterfaceTileEntity extends TileEntity implements IInventory, IGridHost, IActionHost
 {
+
+    private class GridBlock implements IGridBlock
+    {
+        @Override
+        public double getIdlePowerUsage()
+        {
+            return 10;
+        }
+
+        @Override
+        public EnumSet<GridFlags> getFlags()
+        {
+            return EnumSet.of(GridFlags.REQUIRE_CHANNEL);
+        }
+
+        @Override
+        public boolean isWorldAccessible()
+        {
+            return true;
+        }
+
+        @Override
+        public DimensionalCoord getLocation()
+        {
+            return new DimensionalCoord(AdvancedInterfaceTileEntity.this);
+        }
+
+        @Override
+        public AEColor getGridColor()
+        {
+            return AEColor.Transparent;
+        }
+
+        @Override
+        public void onGridNotification(GridNotification gridNotification)
+        {
+
+        }
+
+        @Override
+        public void setNetworkStatus(IGrid iGrid, int i)
+        {
+
+        }
+
+        @Override
+        public EnumSet<ForgeDirection> getConnectableSides()
+        {
+            return EnumSet.allOf(ForgeDirection.class);
+        }
+
+        @Override
+        public IGridHost getMachine()
+        {
+            return AdvancedInterfaceTileEntity.this;
+        }
+
+        @Override
+        public void gridChanged()
+        {
+
+        }
+
+        @Override
+        public ItemStack getMachineRepresentation()
+        {
+            return new ItemStack(BlockRegistry.advancedInterfaceBlock);
+        }
+    }
+
+    private GridBlock gridBlock;
+    private IGridNode gridNode;
+    private boolean isReady;
 
     public AdvancedInterfaceTileEntity()
     {
-        this.gridProxy.setFlags(GridFlags.REQUIRE_CHANNEL);
+        gridBlock = new GridBlock();
+    }
+
+    public IGridNode getNode()
+    {
+        if( this.gridNode == null && FMLCommonHandler.instance().getEffectiveSide().isServer() && this.isReady)
+        {
+            this.gridNode = AEApi.instance().createGridNode(this.gridBlock);
+            this.gridNode.updateState();
+        }
+
+        return this.gridNode;
+    }
+
+    @Override
+    public void updateEntity()
+    {
+        super.updateEntity();
+        this.isReady = true;
+        getNode();
+    }
+
+    @Override
+    public boolean canUpdate()
+    {
+        return !this.isReady;
     }
 
     @Override
@@ -26,7 +131,7 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     {
         try
         {
-            int size = gridProxy.getStorage().getItemInventory().getStorageList().size();
+            int size = AEHelper.getStorage(getNode()).getItemInventory().getStorageList().size();
             return size > 0 ? size : 1;
         } catch (GridAccessException e)
         {
@@ -37,38 +142,22 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public ItemStack getStackInSlot(int slot)
     {
-        try
-        {
-            Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
+            Iterator<IAEItemStack> itr = AEHelper.getItrItems(getNode());
+            if (itr == null) return null;
             for (int i = 0; itr.hasNext() && i < slot; i++)
                 itr.next();
             return itr.next().getItemStack();
-        } catch (GridAccessException e)
-        {
-            return null;
-        } catch (NullPointerException e)
-        {
-            return null;
-        }
     }
 
     @Override
     public ItemStack decrStackSize(int slot, int amount)
     {
-        try
-        {
-            Iterator<IAEItemStack> itr = gridProxy.getStorage().getItemInventory().getStorageList().iterator();
+            Iterator<IAEItemStack> itr = AEHelper.getItrItems(getNode());
+            if (itr == null) return null;
             for (int i = 0; itr.hasNext() && i < slot; i++)
                 itr.next();
-            ItemStack theStack = itr.next().getItemStack();
-            ItemStack newStack = theStack.copy();
-            newStack.stackSize = Math.min(amount, theStack.stackSize);
-            this.gridProxy.getStorage().getItemInventory().extractItems(AEItemStack.create(newStack), Actionable.MODULATE, new MachineSource(this));
-            return newStack;
-        } catch (GridAccessException e)
-        {
-            return null;
-        }
+            IAEItemStack stack = AEHelper.extract(getNode(), itr.next(), this);
+            return stack == null ? null : stack.getItemStack();
     }
 
     @Override
@@ -80,13 +169,7 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public void setInventorySlotContents(int slot, ItemStack stack)
     {
-        try
-        {
-            gridProxy.getStorage().getItemInventory().injectItems(AEItemStack.create(stack), Actionable.MODULATE, new MachineSource(this));
-        } catch (GridAccessException e)
-        {
-            // can't access grid this should never happen since it is dealt with the isItemValidForSlot function
-        }
+        AEHelper.insert(getNode(), stack, this, false);
     }
 
     @Override
@@ -128,12 +211,52 @@ public class AdvancedInterfaceTileEntity extends AENetworkTile implements IInven
     @Override
     public boolean isItemValidForSlot(int slot, ItemStack stack)
     {
-        try
+        return AEHelper.canInsert(getNode(), stack);
+    }
+
+    @Override
+    public IGridNode getActionableNode()
+    {
+        return getNode();
+    }
+
+    @Override
+    public IGridNode getGridNode(ForgeDirection dir)
+    {
+        return getNode();
+    }
+
+    @Override
+    public AECableType getCableConnectionType(ForgeDirection dir)
+    {
+        return AECableType.SMART;
+    }
+
+    @Override
+    public void securityBreak()
+    {
+        this.worldObj.func_147480_a(this.xCoord, this.yCoord, this.zCoord, true);
+    }
+
+    @Override
+    public void invalidate()
+    {
+        super.invalidate();
+        if (this.gridNode != null)
         {
-            return this.gridProxy.getStorage().getItemInventory().canAccept(AEItemStack.create(stack));
-        } catch (GridAccessException e)
+            this.gridNode.destroy();
+            this.gridNode = null;
+        }
+    }
+
+    @Override
+    public void onChunkUnload()
+    {
+        super.onChunkUnload();
+        if (this.gridNode != null)
         {
-            return false;
+            this.gridNode.destroy();
+            this.gridNode = null;
         }
     }
 }
