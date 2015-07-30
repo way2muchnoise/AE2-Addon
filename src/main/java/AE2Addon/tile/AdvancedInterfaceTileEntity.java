@@ -1,40 +1,36 @@
 package AE2Addon.tile;
 
+import AE2Addon.ae.IMultiChannelGridBlock;
+import AE2Addon.ae.IMultiChannelGridNode;
+import AE2Addon.ae.MultiChannelGridNode;
 import AE2Addon.registry.BlockRegistry;
-import AE2Addon.util.AEHelper;
-import appeng.api.AEApi;
 import appeng.api.networking.*;
 import appeng.api.networking.security.IActionHost;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalCoord;
-import appeng.me.GridAccessException;
 import cpw.mods.fml.common.FMLCommonHandler;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import java.util.EnumSet;
-import java.util.Iterator;
 
-public class AdvancedInterfaceTileEntity extends TileEntity implements IInventory, IGridHost, IActionHost
+public class AdvancedInterfaceTileEntity extends TileEntity implements IGridHost, IActionHost
 {
 
-    private class GridBlock implements IGridBlock
+    private class GridBlock implements IMultiChannelGridBlock
     {
         @Override
         public double getIdlePowerUsage()
         {
-            return 10;
+            return 0;
         }
 
         @Override
         public EnumSet<GridFlags> getFlags()
         {
-            return EnumSet.of(GridFlags.REQUIRE_CHANNEL);
+            return EnumSet.noneOf(GridFlags.class);
         }
 
         @Override
@@ -90,11 +86,30 @@ public class AdvancedInterfaceTileEntity extends TileEntity implements IInventor
         {
             return new ItemStack(BlockRegistry.advancedInterfaceBlock);
         }
+
+        @Override
+        public double getIdleSubChannelPowerUsage()
+        {
+            return 10;
+        }
+
+        @Override
+        public ItemStack getSubChannelMachineRepresentation()
+        {
+            return null;
+        }
+
+        @Override
+        public int getAmountBaseChannels()
+        {
+            return AdvancedInterfaceTileEntity.baseChannels;
+        }
     }
 
     private GridBlock gridBlock;
-    private IGridNode gridNode;
+    private IMultiChannelGridNode gridNode;
     private boolean isReady;
+    private static final int baseChannels = 4;
 
     public AdvancedInterfaceTileEntity()
     {
@@ -105,17 +120,23 @@ public class AdvancedInterfaceTileEntity extends TileEntity implements IInventor
     {
         if( this.gridNode == null && FMLCommonHandler.instance().getEffectiveSide().isServer() && this.isReady)
         {
-            this.gridNode = AEApi.instance().createGridNode(this.gridBlock);
+            this.gridNode = new MultiChannelGridNode(this.gridBlock);
             this.gridNode.updateState();
         }
 
         return this.gridNode;
     }
 
+    public boolean addConnection()
+    {
+        return this.gridNode != null && this.gridNode.addConnection();
+    }
+
     @Override
     public void updateEntity()
     {
         super.updateEntity();
+        if (isReady) return;
         this.isReady = true;
         getNode();
     }
@@ -124,94 +145,6 @@ public class AdvancedInterfaceTileEntity extends TileEntity implements IInventor
     public boolean canUpdate()
     {
         return !this.isReady;
-    }
-
-    @Override
-    public int getSizeInventory()
-    {
-        try
-        {
-            int size = AEHelper.getStorage(getNode()).getItemInventory().getStorageList().size();
-            return size > 0 ? size : 1;
-        } catch (GridAccessException e)
-        {
-            return 0;
-        }
-    }
-
-    @Override
-    public ItemStack getStackInSlot(int slot)
-    {
-            Iterator<IAEItemStack> itr = AEHelper.getItrItems(getNode());
-            if (itr == null) return null;
-            for (int i = 0; itr.hasNext() && i < slot; i++)
-                itr.next();
-            return itr.next().getItemStack();
-    }
-
-    @Override
-    public ItemStack decrStackSize(int slot, int amount)
-    {
-            Iterator<IAEItemStack> itr = AEHelper.getItrItems(getNode());
-            if (itr == null) return null;
-            for (int i = 0; itr.hasNext() && i < slot; i++)
-                itr.next();
-            IAEItemStack stack = AEHelper.extract(getNode(), itr.next(), this);
-            return stack == null ? null : stack.getItemStack();
-    }
-
-    @Override
-    public ItemStack getStackInSlotOnClosing(int slot)
-    {
-        return null;
-    }
-
-    @Override
-    public void setInventorySlotContents(int slot, ItemStack stack)
-    {
-        AEHelper.insert(getNode(), stack, this, false);
-    }
-
-    @Override
-    public String getInventoryName()
-    {
-        return "advancedInterface";
-    }
-
-    @Override
-    public boolean hasCustomInventoryName()
-    {
-        return false;
-    }
-
-    @Override
-    public int getInventoryStackLimit()
-    {
-        return Integer.MAX_VALUE;
-    }
-
-    @Override
-    public boolean isUseableByPlayer(EntityPlayer player)
-    {
-        return false;
-    }
-
-    @Override
-    public void openInventory()
-    {
-
-    }
-
-    @Override
-    public void closeInventory()
-    {
-
-    }
-
-    @Override
-    public boolean isItemValidForSlot(int slot, ItemStack stack)
-    {
-        return AEHelper.canInsert(getNode(), stack);
     }
 
     @Override

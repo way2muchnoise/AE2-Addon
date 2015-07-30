@@ -38,6 +38,14 @@ repositories {
         name 'FMP'
         artifactPattern "http://files.minecraftforge.net/[module]/[module]-dev-[revision].[ext]"
     }
+    maven {
+        name "Waila Mobius Repo"
+        url "http://mobiusstrip.eu/maven"
+    }
+    maven {
+    name 'CB Repo'
+	url "http://chickenbones.net/maven"
+    }
 }
 
 group = "AE2Addon"
@@ -59,7 +67,11 @@ minecraft {
 }
 
 dependencies {
-    compile "appeng:appliedenergistics2:rv2-beta-22:dev"
+    compile group: 'codechicken', name: 'NotEnoughItems', version: "${config.version.minecraft}-${config.version.nei}", ext: 'jar', classifier: "dev"
+    compile group: 'codechicken', name: 'CodeChickenCore', version: "${config.version.minecraft}-${config.version.cccore}", ext: 'jar', classifier: "dev"
+    compile group: 'codechicken', name: 'CodeChickenLib', version: "${config.version.minecraft}-${config.version.cclib}", ext: 'jar', classifier: "dev"
+	compile "appeng:appliedenergistics2:${config.version.appeng}:dev"
+	compile "mcp.mobius.waila:Waila:${config.version.waila}"
 }
 
 processResources {
