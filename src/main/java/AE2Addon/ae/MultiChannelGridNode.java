@@ -63,20 +63,20 @@ public class MultiChannelGridNode extends GridNode implements IMultiChannelGridN
         if (getFreeChannels() <= 0)
             return false;
 
-        GridNode ghostNode = null;
+        GridNode ghostNode = new GridNode(this.internalBlock);
+        ghostNode.updateState();
+        GridConnection connection;
         try
         {
-            ghostNode = new GridNode(this.internalBlock);
-            ghostNode.updateState();
-            GridConnection connection = new GridConnection(this, ghostNode, ForgeDirection.UNKNOWN);
-            this.internalNodes.add(ghostNode);
-            this.internalConnections.add(connection);
+            connection = new GridConnection(this, ghostNode, ForgeDirection.UNKNOWN);
         } catch (FailedConnection failedConnection)
         {
             failedConnection.printStackTrace();
             ghostNode.destroy();
             return false;
         }
+        this.internalNodes.add(ghostNode);
+        this.internalConnections.add(connection);
         return true;
     }
 
@@ -106,7 +106,6 @@ public class MultiChannelGridNode extends GridNode implements IMultiChannelGridN
 
     public int getFreeChannels()
     {
-
         return this.getMaxChannels() - this.usedChannels();
     }
 
@@ -123,6 +122,12 @@ public class MultiChannelGridNode extends GridNode implements IMultiChannelGridN
     {
         disconnectAll();
         super.destroy();
+    }
+
+    @Override
+    public boolean meetsChannelRequirements()
+    {
+        return this.usedChannels() > proxyBlock.getAmountBaseChannels();
     }
 
     private class GhostGridBlock implements IGridBlock
